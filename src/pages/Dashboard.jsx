@@ -61,6 +61,7 @@ function computeResiduoSocio(socio, fattureEntrata, spese, fattureSoci, from, to
   let speseQuota = 0
   for (const s of spese) {
     if (!inRange(s.data_documento, from, to)) continue
+    if (s.escludi_da_residuo) continue
     const q = (s.spese_quote_soci ?? []).find(x => x.socio === socio)
     if (q) speseQuota += q.importo ?? 0
   }

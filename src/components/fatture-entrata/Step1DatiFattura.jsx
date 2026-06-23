@@ -52,6 +52,16 @@ export default function Step1DatiFattura({ data, onChange, errors }) {
         />
       </Field>
 
+      <Field label="Descrizione">
+        <textarea
+          rows={2}
+          value={data.descrizione}
+          onChange={e => onChange('descrizione', e.target.value)}
+          placeholder="Dettagli aggiuntivi (opzionale)"
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+        />
+      </Field>
+
       <div className="grid grid-cols-2 gap-4">
         <Field label="Imponibile (€) *" error={errors.imponibile}>
           <div className="relative">

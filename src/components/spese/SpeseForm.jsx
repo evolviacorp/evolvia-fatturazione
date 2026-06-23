@@ -217,6 +217,7 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
       ritenuta_acconto:     values.ha_fattura_allegata ? (parseFloat(values.ritenuta_acconto)     || 0) : 0,
       contributo_albo:      values.ha_fattura_allegata ? (parseFloat(values.contributo_albo)      || 0) : 0,
       contributo_albo_nome: values.ha_fattura_allegata ? (values.contributo_albo_nome || null)        : null,
+      escludi_da_residuo:   values.categoria === 'Commissione agente/rete',
     }
 
     const quoteCustom = {
