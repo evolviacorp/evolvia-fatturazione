@@ -90,6 +90,14 @@ export default function FattureEntrata() {
   // Totali
   const totImponibile = fatture.reduce((s, f) => s + (f.imponibile ?? 0), 0)
   const totLordo = fatture.reduce((s, f) => s + (f.totale_lordo ?? 0), 0)
+  const totIva = totLordo - totImponibile
+  const totQuoteSoci = ['riccardo', 'mattia', 'sergio'].reduce((acc, socio) => {
+    acc[socio] = fatture.reduce((s, f) => {
+      const q = (f.fatture_entrata_quote_soci ?? []).find(q => q.socio === socio)
+      return s + (q?.importo ?? 0)
+    }, 0)
+    return acc
+  }, {})
 
   return (
     <div className="p-6">
@@ -209,14 +217,27 @@ export default function FattureEntrata() {
             </div>
 
             {/* Footer totali */}
-            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-              <span className="text-xs text-slate-400">{fatture.length} fatture</span>
-              <div className="flex items-center gap-6 text-sm">
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex items-start justify-between flex-wrap gap-y-2">
+              <span className="text-xs text-slate-400 mt-1">{fatture.length} fatture</span>
+              <div className="flex flex-wrap justify-end gap-x-6 gap-y-1.5 text-sm">
                 <span className="text-slate-600">
                   Tot. imponibile: <span className="font-semibold text-slate-900">{formatCurrency(totImponibile)}</span>
                 </span>
                 <span className="text-slate-600">
+                  Tot. IVA: <span className="font-semibold text-slate-900">{formatCurrency(totIva)}</span>
+                </span>
+                <span className="text-slate-600">
                   Tot. lordo: <span className="font-bold text-blue-700">{formatCurrency(totLordo)}</span>
+                </span>
+                <span className="w-full h-0 basis-full" />
+                <span className="text-slate-600">
+                  Quota Riccardo: <span className="font-semibold text-blue-600">{formatCurrency(totQuoteSoci.riccardo)}</span>
+                </span>
+                <span className="text-slate-600">
+                  Quota Mattia: <span className="font-semibold text-emerald-600">{formatCurrency(totQuoteSoci.mattia)}</span>
+                </span>
+                <span className="text-slate-600">
+                  Quota Sergio: <span className="font-semibold text-amber-600">{formatCurrency(totQuoteSoci.sergio)}</span>
                 </span>
               </div>
             </div>
