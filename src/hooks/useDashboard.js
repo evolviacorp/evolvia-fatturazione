@@ -14,7 +14,7 @@ export function useDashboard() {
     const [r1, r2, r3] = await Promise.all([
       supabase
         .from('fatture_entrata')
-        .select('*, fatture_entrata_quote_soci(*), fatture_entrata_trattenuto_soci(*)'),
+        .select('*, fatture_entrata_quote_soci(*)'),
       supabase
         .from('spese')
         .select('*, spese_quote_soci(*)'),

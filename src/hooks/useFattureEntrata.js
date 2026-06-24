@@ -15,8 +15,7 @@ export function useFattureEntrata() {
       .select(`
         *,
         fatture_entrata_quote_soci(*),
-        fatture_entrata_quote_agenti(*, agenti(nome, cognome)),
-        fatture_entrata_trattenuto_soci(*)
+        fatture_entrata_quote_agenti(*, agenti(nome, cognome))
       `)
       .order('data', { ascending: false })
     if (error) setError(error.message)
@@ -26,19 +25,11 @@ export function useFattureEntrata() {
 
   useEffect(() => { fetchFatture() }, [fetchFatture])
 
-  async function _writeChildren(fatturaId, { quote_agenti, trattenuto_soci, quote_soci }) {
+  async function _writeChildren(fatturaId, { quote_agenti, quote_soci }) {
     if (quote_agenti.length > 0) {
       const { error } = await supabase
         .from('fatture_entrata_quote_agenti')
         .insert(quote_agenti.map(q => ({ ...q, fattura_id: fatturaId })))
-      if (error) throw new Error(error.message)
-    }
-
-    const tsRows = SOCI
-      .filter(s => (trattenuto_soci[s] ?? 0) > 0)
-      .map(s => ({ fattura_id: fatturaId, socio: s, importo: trattenuto_soci[s] }))
-    if (tsRows.length > 0) {
-      const { error } = await supabase.from('fatture_entrata_trattenuto_soci').insert(tsRows)
       if (error) throw new Error(error.message)
     }
 
@@ -72,7 +63,6 @@ export function useFattureEntrata() {
 
     await Promise.all([
       supabase.from('fatture_entrata_quote_agenti').delete().eq('fattura_id', id),
-      supabase.from('fatture_entrata_trattenuto_soci').delete().eq('fattura_id', id),
       supabase.from('fatture_entrata_quote_soci').delete().eq('fattura_id', id),
     ])
     await _writeChildren(id, payload)

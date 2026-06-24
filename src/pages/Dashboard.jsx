@@ -48,14 +48,11 @@ function getPeriodRange(periodo, customFrom, customTo) {
 // ── Computation helpers ───────────────────────────────────────
 
 function computeResiduoSocio(socio, fattureEntrata, spese, fattureSoci, from, to) {
-  let entrata    = 0
-  let trattenuto = 0
+  let entrata = 0
   for (const f of fattureEntrata) {
     if (!inRange(f.data, from, to)) continue
     const q = (f.fatture_entrata_quote_soci ?? []).find(x => x.socio === socio)
     if (q) entrata += q.importo ?? 0
-    const t = (f.fatture_entrata_trattenuto_soci ?? []).find(x => x.socio === socio)
-    if (t) trattenuto += t.importo ?? 0
   }
 
   let speseQuota = 0
@@ -72,8 +69,8 @@ function computeResiduoSocio(socio, fattureEntrata, spese, fattureSoci, from, to
     fattureEmesse += f.imponibile ?? 0
   }
 
-  return { entrata, trattenuto, speseQuota, fattureEmesse,
-    totale: Math.round((entrata + trattenuto - speseQuota - fattureEmesse) * 100) / 100 }
+  return { entrata, speseQuota, fattureEmesse,
+    totale: Math.round((entrata - speseQuota - fattureEmesse) * 100) / 100 }
 }
 
 function computeIva(fattureEntrata, spese, fattureSoci, from, to) {
@@ -162,7 +159,6 @@ function ResidualCard({ socio, data }) {
       </div>
       <div className="space-y-2.5">
         <DetailRow label="Quota entrate"    value={data.entrata}       sign="+" />
-        <DetailRow label="Trattenuto agenti" value={data.trattenuto}   sign="+" />
         <DetailRow label="Quota spese soc." value={data.speseQuota}   sign="−" />
         <DetailRow label="Fatture emesse"   value={data.fattureEmesse} sign="−" />
       </div>
@@ -286,7 +282,7 @@ export default function Dashboard() {
     [fattureEntrata, spese, fattureSoci]
   )
 
-  const ZERO = { entrata: 0, trattenuto: 0, speseQuota: 0, fattureEmesse: 0, totale: 0 }
+  const ZERO = { entrata: 0, speseQuota: 0, fattureEmesse: 0, totale: 0 }
 
   return (
     <div className="p-6 space-y-7 max-w-screen-xl">

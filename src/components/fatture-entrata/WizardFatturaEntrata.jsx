@@ -4,7 +4,6 @@ import { SOCI, formatCurrency } from '../../utils/format'
 import StepIndicator from './StepIndicator'
 import Step1DatiFattura from './Step1DatiFattura'
 import Step2QuoteAgenti from './Step2QuoteAgenti'
-import Step3TrattentutoSoci from './Step3TrattentutoSoci'
 import Step4QuoteSoci from './Step4QuoteSoci'
 
 function n(v) { return parseFloat(v) || 0 }
@@ -25,14 +24,8 @@ function buildInitialState(editing) {
       quote_agenti: (editing.fatture_entrata_quote_agenti ?? []).map(q => ({
         _key: q.id,
         agente_id: q.agente_id,
-        importo_lordo: String(q.importo_lordo),
-        percentuale_trattenuta: String(q.percentuale_trattenuta),
+        importo_girato: String(q.importo_girato),
       })),
-      trattenuto_soci: {
-        riccardo: findSocio(editing.fatture_entrata_trattenuto_soci, 'riccardo'),
-        mattia:   findSocio(editing.fatture_entrata_trattenuto_soci, 'mattia'),
-        sergio:   findSocio(editing.fatture_entrata_trattenuto_soci, 'sergio'),
-      },
       quote_soci: {
         riccardo: findSocio(editing.fatture_entrata_quote_soci, 'riccardo'),
         mattia:   findSocio(editing.fatture_entrata_quote_soci, 'mattia'),
@@ -50,7 +43,6 @@ function buildInitialState(editing) {
     iva_pct: '22',
     note: '',
     quote_agenti: [],
-    trattenuto_soci: { riccardo: '', mattia: '', sergio: '' },
     quote_soci: { riccardo: '', mattia: '', sergio: '' },
   }
 }
@@ -61,31 +53,20 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
   const [stepErrors, setStepErrors] = useState({})
   const [saving, setSaving] = useState(false)
 
-  // Computed
   const imponibile = n(formData.imponibile)
 
-  const { totaleLordo, totaleTrattenuto, totaleGirato } = useMemo(() => {
-    return formData.quote_agenti.reduce((acc, row) => {
-      const lordo = n(row.importo_lordo)
-      const pct = n(row.percentuale_trattenuta)
-      return {
-        totaleLordo: acc.totaleLordo + lordo,
-        totaleTrattenuto: acc.totaleTrattenuto + Math.round(lordo * pct) / 100,
-        totaleGirato: acc.totaleGirato + Math.round(lordo * (100 - pct)) / 100,
-      }
-    }, { totaleLordo: 0, totaleTrattenuto: 0, totaleGirato: 0 })
-  }, [formData.quote_agenti])
+  const totaleGirato = useMemo(
+    () => formData.quote_agenti.reduce((s, row) => s + n(row.importo_girato), 0),
+    [formData.quote_agenti]
+  )
 
-  const skipStep3 = totaleTrattenuto < 0.01
-  const baseSoci = Math.round((imponibile - totaleLordo) * 100) / 100
+  const baseSoci = Math.round((imponibile - totaleGirato) * 100) / 100
 
-  // State updater
   function onChange(key, value) {
     setFormData(prev => ({ ...prev, [key]: value }))
     setStepErrors({})
   }
 
-  // Validation per step
   function validateStep1() {
     const errs = {}
     if (!formData.data) errs.data = 'Data obbligatoria'
@@ -96,26 +77,17 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
 
   function validateStep2() {
     const errs = {}
-    if (totaleLordo > imponibile + 0.01) {
-      errs.totale = `Il totale agenti (${formatCurrency(totaleLordo)}) supera l'imponibile (${formatCurrency(imponibile)})`
+    if (totaleGirato > imponibile + 0.01) {
+      errs.totale = `Il totale girato agli agenti (${formatCurrency(totaleGirato)}) supera l'imponibile (${formatCurrency(imponibile)})`
     }
     formData.quote_agenti.forEach((row, i) => {
       if (!row.agente_id) errs[`row_${i}`] = 'Seleziona un agente'
-      else if (!(n(row.importo_lordo) > 0)) errs[`row_${i}`] = 'Importo non valido'
+      else if (!(n(row.importo_girato) > 0)) errs[`row_${i}`] = 'Importo non valido'
     })
     return errs
   }
 
   function validateStep3() {
-    const errs = {}
-    const somma = SOCI.reduce((s, soc) => s + n(formData.trattenuto_soci[soc]), 0)
-    if (Math.abs(somma - totaleTrattenuto) > 0.01) {
-      errs.somma = `La somma (${formatCurrency(somma)}) deve essere uguale al trattenuto (${formatCurrency(totaleTrattenuto)})`
-    }
-    return errs
-  }
-
-  function validateStep4() {
     const errs = {}
     const somma = SOCI.reduce((s, soc) => s + n(formData.quote_soci[soc]), 0)
     if (Math.abs(somma - baseSoci) > 0.01) {
@@ -128,36 +100,19 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
     let errs = {}
     if (step === 1) errs = validateStep1()
     if (step === 2) errs = validateStep2()
-    if (step === 3) errs = validateStep3()
-
-    if (Object.keys(errs).length > 0) {
-      setStepErrors(errs)
-      return
-    }
-
-    if (step === 2 && skipStep3) {
-      setStep(4)
-    } else {
-      setStep(s => Math.min(s + 1, 4))
-    }
+    if (Object.keys(errs).length > 0) { setStepErrors(errs); return }
+    setStep(s => Math.min(s + 1, 3))
     setStepErrors({})
   }
 
   function goPrev() {
-    if (step === 4 && skipStep3) {
-      setStep(2)
-    } else {
-      setStep(s => Math.max(s - 1, 1))
-    }
+    setStep(s => Math.max(s - 1, 1))
     setStepErrors({})
   }
 
   async function handleSave() {
-    const errs = validateStep4()
-    if (Object.keys(errs).length > 0) {
-      setStepErrors(errs)
-      return
-    }
+    const errs = validateStep3()
+    if (Object.keys(errs).length > 0) { setStepErrors(errs); return }
 
     setSaving(true)
     try {
@@ -173,12 +128,8 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
         },
         quote_agenti: formData.quote_agenti.map(q => ({
           agente_id: q.agente_id,
-          importo_lordo: n(q.importo_lordo),
-          percentuale_trattenuta: n(q.percentuale_trattenuta),
+          importo_girato: n(q.importo_girato),
         })),
-        trattenuto_soci: Object.fromEntries(
-          SOCI.map(s => [s, n(formData.trattenuto_soci[s])])
-        ),
         quote_soci: Object.fromEntries(
           SOCI.map(s => [s, n(formData.quote_soci[s])])
         ),
@@ -189,20 +140,20 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
     }
   }
 
-  const stepLabels = { 1: 'Dati fattura', 2: 'Agenti', 3: 'Trattenuto soci', 4: 'Quote soci' }
+  const stepLabels = { 1: 'Dati fattura', 2: 'Agenti', 3: 'Quote soci' }
 
   return (
     <div>
-      <StepIndicator currentStep={step} skipStep3={skipStep3} />
+      <StepIndicator currentStep={step} />
 
       {/* Mini barra di contesto */}
       {imponibile > 0 && (
         <div className="flex items-center gap-4 mb-5 px-4 py-2 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
           <span>Imponibile: <strong className="text-slate-900">{formatCurrency(imponibile)}</strong></span>
-          {totaleLordo > 0 && (
+          {totaleGirato > 0 && (
             <>
               <span className="text-slate-300">|</span>
-              <span>Agenti: <strong className="text-slate-900">{formatCurrency(totaleLordo)}</strong></span>
+              <span>Agenti: <strong className="text-slate-900">{formatCurrency(totaleGirato)}</strong></span>
               <span className="text-slate-300">|</span>
               <span>Base soci: <strong className="text-blue-700">{formatCurrency(baseSoci)}</strong></span>
             </>
@@ -225,19 +176,10 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
           />
         )}
         {step === 3 && (
-          <Step3TrattentutoSoci
-            data={formData}
-            totaleTrattenuto={totaleTrattenuto}
-            onChange={onChange}
-            errors={stepErrors}
-          />
-        )}
-        {step === 4 && (
           <Step4QuoteSoci
             data={formData}
             imponibile={imponibile}
-            totaleLordoAgenti={totaleLordo}
-            totaleTrattenuto={totaleTrattenuto}
+            totaleGiratoAgenti={totaleGirato}
             onChange={onChange}
             errors={stepErrors}
           />
@@ -258,7 +200,7 @@ export default function WizardFatturaEntrata({ editing, agentiList, onSave, onCl
           {stepLabels[step]}
         </span>
 
-        {step < 4 ? (
+        {step < 3 ? (
           <button
             type="button"
             onClick={goNext}

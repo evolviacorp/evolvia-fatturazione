@@ -17,7 +17,6 @@ export function useReport() {
         .select(`
           *,
           fatture_entrata_quote_soci(*),
-          fatture_entrata_trattenuto_soci(*),
           fatture_entrata_quote_agenti(*, agenti(nome, cognome))
         `)
         .order('data', { ascending: false }),

@@ -152,8 +152,8 @@ export default function FattureEntrata() {
                 <tbody className="divide-y divide-slate-100">
                   {fatture.map(fattura => {
                     const nAgenti = fattura.fatture_entrata_quote_agenti?.length ?? 0
-                    const totAgentiLordo = (fattura.fatture_entrata_quote_agenti ?? [])
-                      .reduce((s, q) => s + (q.importo_lordo ?? 0), 0)
+                    const totAgentiGirato = (fattura.fatture_entrata_quote_agenti ?? [])
+                      .reduce((s, q) => s + (q.importo_girato ?? 0), 0)
                     return (
                       <tr key={fattura.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
@@ -184,7 +184,7 @@ export default function FattureEntrata() {
                                 {nAgenti} {nAgenti === 1 ? 'agente' : 'agenti'}
                               </Badge>
                               <div className="text-xs text-slate-400">
-                                {formatCurrency(totAgentiLordo)}
+                                {formatCurrency(totAgentiGirato)}
                               </div>
                             </div>
                           ) : (

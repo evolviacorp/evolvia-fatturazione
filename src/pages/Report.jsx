@@ -165,14 +165,12 @@ export default function Report() {
   const riepilogoSoci = useMemo(() => {
     const lista = filtroSocio === 'tutti' ? SOCI : [filtroSocio]
     return lista.map(socio => {
-      let entrate = 0, trattenuto = 0, speseQuota = 0, fattureEmesse = 0
+      let entrate = 0, speseQuota = 0, fattureEmesse = 0
 
       for (const f of fattureEntrata) {
         if (!inRange(f.data, from, to)) continue
         const q = (f.fatture_entrata_quote_soci ?? []).find(x => x.socio === socio)
         if (q) entrate += q.importo ?? 0
-        const t = (f.fatture_entrata_trattenuto_soci ?? []).find(x => x.socio === socio)
-        if (t) trattenuto += t.importo ?? 0
       }
 
       for (const s of spese) {
@@ -187,20 +185,19 @@ export default function Report() {
         fattureEmesse += f.imponibile ?? 0
       }
 
-      const residuo = Math.round((entrate + trattenuto - speseQuota - fattureEmesse) * 100) / 100
-      return { socio, entrate, trattenuto, speseQuota, fattureEmesse, residuo }
+      const residuo = Math.round((entrate - speseQuota - fattureEmesse) * 100) / 100
+      return { socio, entrate, speseQuota, fattureEmesse, residuo }
     })
   }, [fattureEntrata, spese, fattureSoci, from, to, filtroSocio])
 
   const totRiepilogo = useMemo(() => riepilogoSoci.reduce(
     (a, r) => ({
       entrate:       a.entrate       + r.entrate,
-      trattenuto:    a.trattenuto    + r.trattenuto,
       speseQuota:    a.speseQuota    + r.speseQuota,
       fattureEmesse: a.fattureEmesse + r.fattureEmesse,
       residuo:       a.residuo       + r.residuo,
     }),
-    { entrate: 0, trattenuto: 0, speseQuota: 0, fattureEmesse: 0, residuo: 0 }
+    { entrate: 0, speseQuota: 0, fattureEmesse: 0, residuo: 0 }
   ), [riepilogoSoci])
 
   // ── 2. Agenti ─────────────────────────────────────────────
@@ -213,28 +210,20 @@ export default function Report() {
         const id = qa.agente_id ?? '__sconosciuto__'
         if (!map.has(id)) {
           const ag   = qa.agenti
-          const nome = ag ? `${ag.nome} ${ag.cognome}` : '(agente rimosso)'
-          map.set(id, { nome, lordo: 0, trattenuto: 0, girato: 0 })
+          const nome = ag ? `${ag.cognome} ${ag.nome}` : '(agente rimosso)'
+          map.set(id, { nome, girato: 0 })
         }
-        const row = map.get(id)
-        row.lordo      += qa.importo_lordo      ?? 0
-        row.trattenuto += qa.importo_trattenuto ?? 0
-        row.girato     += qa.importo_girato     ?? 0
+        map.get(id).girato += qa.importo_girato ?? 0
       }
     }
     return Array.from(map.values())
-      .map(r => ({
-        ...r,
-        lordo:      Math.round(r.lordo      * 100) / 100,
-        trattenuto: Math.round(r.trattenuto * 100) / 100,
-        girato:     Math.round(r.girato     * 100) / 100,
-      }))
-      .sort((a, b) => b.lordo - a.lordo)
+      .map(r => ({ ...r, girato: Math.round(r.girato * 100) / 100 }))
+      .sort((a, b) => b.girato - a.girato)
   }, [fattureEntrata, from, to])
 
   const totAgenti = useMemo(() => agentiReport.reduce(
-    (a, r) => ({ lordo: a.lordo + r.lordo, trattenuto: a.trattenuto + r.trattenuto, girato: a.girato + r.girato }),
-    { lordo: 0, trattenuto: 0, girato: 0 }
+    (a, r) => ({ girato: a.girato + r.girato }),
+    { girato: 0 }
   ), [agentiReport])
 
   // ── 3. Spese per categoria ────────────────────────────────
@@ -276,11 +265,10 @@ export default function Report() {
 
   function exportRiepilogo() {
     exportCsv(
-      ['Socio', 'Entrate', 'Trattenuto agenti', 'Quota spese soc.', 'Fatture emesse', 'Residuo'],
+      ['Socio', 'Entrate', 'Quota spese soc.', 'Fatture emesse', 'Residuo'],
       riepilogoSoci.map(r => [
         SOCIO_LABELS[r.socio],
         fmtNum(r.entrate),
-        fmtNum(r.trattenuto),
         fmtNum(r.speseQuota),
         fmtNum(r.fattureEmesse),
         fmtNum(r.residuo),
@@ -291,8 +279,8 @@ export default function Report() {
 
   function exportAgenti() {
     exportCsv(
-      ['Agente', 'Totale lordo', 'Trattenuto', 'Girato'],
-      agentiReport.map(r => [r.nome, fmtNum(r.lordo), fmtNum(r.trattenuto), fmtNum(r.girato)]),
+      ['Agente', 'Girato'],
+      agentiReport.map(r => [r.nome, fmtNum(r.girato)]),
       `evolvia_agenti_${rangeLabel}.csv`
     )
   }
@@ -404,7 +392,6 @@ export default function Report() {
               <tr>
                 <Th>Socio</Th>
                 <Th right>Entrate</Th>
-                <Th right>Trattenuto agenti</Th>
                 <Th right>Quota spese soc.</Th>
                 <Th right>Fatture emesse</Th>
                 <Th right>Residuo</Th>
@@ -412,16 +399,15 @@ export default function Report() {
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonRows cols={6} />
+                <SkeletonRows cols={5} />
               ) : riepilogoSoci.length === 0 ? (
-                <EmptyRow cols={6} />
+                <EmptyRow cols={5} />
               ) : (
                 <>
                   {riepilogoSoci.map(r => (
                     <tr key={r.socio} className="hover:bg-slate-50/50 transition-colors">
                       <Td><span className="font-medium text-slate-800">{SOCIO_LABELS[r.socio]}</span></Td>
                       <Td right>{formatCurrency(r.entrate)}</Td>
-                      <Td right>{formatCurrency(r.trattenuto)}</Td>
                       <Td right>{formatCurrency(r.speseQuota)}</Td>
                       <Td right>{formatCurrency(r.fattureEmesse)}</Td>
                       <Td right bold color={r.residuo >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
@@ -433,7 +419,6 @@ export default function Report() {
                     <TotalRow cells={[
                       { value: 'Totale' },
                       { value: formatCurrency(totRiepilogo.entrate),       right: true },
-                      { value: formatCurrency(totRiepilogo.trattenuto),    right: true },
                       { value: formatCurrency(totRiepilogo.speseQuota),    right: true },
                       { value: formatCurrency(totRiepilogo.fattureEmesse), right: true },
                       { value: formatCurrency(totRiepilogo.residuo),       right: true, color: totRiepilogo.residuo >= 0 ? 'text-emerald-600' : 'text-rose-600' },
@@ -454,31 +439,25 @@ export default function Report() {
             <thead>
               <tr>
                 <Th>Agente</Th>
-                <Th right>Totale lordo</Th>
-                <Th right>Trattenuto</Th>
-                <Th right>Girato</Th>
+                <Th right>Importo girato</Th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonRows cols={4} />
+                <SkeletonRows cols={2} />
               ) : agentiReport.length === 0 ? (
-                <EmptyRow cols={4} />
+                <EmptyRow cols={2} />
               ) : (
                 <>
                   {agentiReport.map(r => (
                     <tr key={r.nome} className="hover:bg-slate-50/50 transition-colors">
                       <Td><span className="font-medium text-slate-800">{r.nome}</span></Td>
-                      <Td right>{formatCurrency(r.lordo)}</Td>
-                      <Td right>{formatCurrency(r.trattenuto)}</Td>
                       <Td right>{formatCurrency(r.girato)}</Td>
                     </tr>
                   ))}
                   <TotalRow cells={[
                     { value: 'Totale' },
-                    { value: formatCurrency(totAgenti.lordo),      right: true },
-                    { value: formatCurrency(totAgenti.trattenuto), right: true },
-                    { value: formatCurrency(totAgenti.girato),     right: true },
+                    { value: formatCurrency(totAgenti.girato), right: true },
                   ]} />
                 </>
               )}

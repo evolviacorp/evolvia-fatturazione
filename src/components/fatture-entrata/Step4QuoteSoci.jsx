@@ -2,8 +2,8 @@ import { formatCurrency, SOCI, SOCIO_LABELS, SOCIO_COLORS } from '../../utils/fo
 
 function n(v) { return parseFloat(v) || 0 }
 
-export default function Step4QuoteSoci({ data, imponibile, totaleLordoAgenti, totaleTrattenuto, onChange, errors }) {
-  const baseSoci = Math.round((imponibile - totaleLordoAgenti) * 100) / 100
+export default function Step4QuoteSoci({ data, imponibile, totaleGiratoAgenti, onChange, errors }) {
+  const baseSoci = Math.round((imponibile - totaleGiratoAgenti) * 100) / 100
   const somma = SOCI.reduce((s, socio) => s + n(data.quote_soci[socio]), 0)
   const rimanente = Math.round((baseSoci - somma) * 100) / 100
   const ok = Math.abs(rimanente) < 0.01
@@ -34,19 +34,11 @@ export default function Step4QuoteSoci({ data, imponibile, totaleLordoAgenti, to
             <span className="text-slate-600">Imponibile totale</span>
             <span className="font-medium">{formatCurrency(imponibile)}</span>
           </div>
-          {totaleLordoAgenti > 0 && (
-            <>
-              <div className="px-4 py-2.5 flex justify-between text-sm">
-                <span className="text-slate-600">− Quota agenti (lordo)</span>
-                <span className="font-medium text-red-600">− {formatCurrency(totaleLordoAgenti)}</span>
-              </div>
-              {totaleTrattenuto > 0 && (
-                <div className="px-4 py-2.5 flex justify-between text-sm pl-8">
-                  <span className="text-slate-500">di cui trattenuto SRL (già distribuito al passo 3)</span>
-                  <span className="text-orange-600">+ {formatCurrency(totaleTrattenuto)}</span>
-                </div>
-              )}
-            </>
+          {totaleGiratoAgenti > 0 && (
+            <div className="px-4 py-2.5 flex justify-between text-sm">
+              <span className="text-slate-600">− Quota agenti (girato)</span>
+              <span className="font-medium text-red-600">− {formatCurrency(totaleGiratoAgenti)}</span>
+            </div>
           )}
           <div className="px-4 py-2.5 flex justify-between text-sm font-semibold bg-blue-50">
             <span className="text-blue-700">Base distribuibile ai soci</span>
