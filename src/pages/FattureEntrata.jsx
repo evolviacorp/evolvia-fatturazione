@@ -64,12 +64,17 @@ export default function FattureEntrata() {
   }
 
   async function handleSave(payload) {
-    if (editing) {
-      await updateFattura(editing.id, payload)
-      toast('Fattura aggiornata')
-    } else {
-      await createFattura(payload)
-      toast('Fattura registrata')
+    try {
+      if (editing) {
+        await updateFattura(editing.id, payload)
+        toast('Fattura aggiornata')
+      } else {
+        await createFattura(payload)
+        toast('Fattura registrata')
+      }
+    } catch (err) {
+      toast(err.message, 'error')
+      throw err
     }
   }
 
