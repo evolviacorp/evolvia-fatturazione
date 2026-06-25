@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
@@ -32,6 +32,17 @@ const schema = z.object({
   ritenuta_acconto:     z.number().min(0).optional().or(z.nan()),
   contributo_albo:      z.number().min(0).optional().or(z.nan()),
   contributo_albo_nome: z.string().optional().or(z.literal('')),
+}).superRefine((data, ctx) => {
+  if (data.categoria === 'Commissione agente/rete') return
+  if (data.ripartizione_tipo !== 'custom') return
+  const sum = (data.quote_riccardo || 0) + (data.quote_mattia || 0) + (data.quote_sergio || 0)
+  if (Math.abs(sum - (data.importo || 0)) > 0.01) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['quote_riccardo'],
+      message: `La somma delle quote (${sum.toFixed(2)} €) deve essere uguale all'importo`,
+    })
+  }
 })
 
 // ── UI helpers ────────────────────────────────────────────
@@ -134,7 +145,7 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
   const aliquoteIva    = useAliquoteIva()
 
   const {
-    register, handleSubmit, watch, setValue, setError, clearErrors,
+    register, handleSubmit, watch, setValue, setError, clearErrors, control,
     formState: { errors }, reset,
   } = useForm({
     resolver: zodResolver(schema),
@@ -150,7 +161,7 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
   const ripartizioneTipo = watch('ripartizione_tipo')
   const haFattura        = watch('ha_fattura_allegata')
   const datDocumento     = watch('data_documento')
-  const isCommissione    = watch('categoria') === 'Commissione agente/rete'
+  const isCommissione    = useWatch({ control, name: 'categoria' }) === 'Commissione agente/rete'
 
   const ivaComputed = ivaPersonalizzata
     ? parseFloat(watch('iva_importo')) || 0
@@ -174,7 +185,7 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
 
   function switchRipartizione(tipo) {
     setValue('ripartizione_tipo', tipo)
-    clearErrors('_quoteSum')
+    clearErrors('quote_riccardo')
     if (tipo === 'custom' && importo > 0) {
       setValue('quote_riccardo', quoteUguali.riccardo)
       setValue('quote_mattia',   quoteUguali.mattia)
@@ -184,17 +195,6 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
 
   function submitHandler(values) {
     const isComm = values.categoria === 'Commissione agente/rete'
-
-    // Validazione quote custom (skip per commissioni — non distribuite)
-    if (!isComm && values.ripartizione_tipo === 'custom') {
-      const sum = (values.quote_riccardo || 0) + (values.quote_mattia || 0) + (values.quote_sergio || 0)
-      if (Math.abs(sum - values.importo) > 0.01) {
-        setError('_quoteSum', {
-          message: `La somma (${formatCurrency(sum)}) deve essere uguale all'importo (${formatCurrency(values.importo)})`,
-        })
-        return
-      }
-    }
 
     const date = new Date(values.data_documento)
     const spesa = {
@@ -407,7 +407,7 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
                     {customOk && <span className="text-green-600">✓</span>}
                   </div>
                 </div>
-                {errors._quoteSum && <p className="text-xs text-red-600">{errors._quoteSum.message}</p>}
+                {errors.quote_riccardo && <p className="text-xs text-red-600">{errors.quote_riccardo.message}</p>}
               </div>
             )}
           </div>
