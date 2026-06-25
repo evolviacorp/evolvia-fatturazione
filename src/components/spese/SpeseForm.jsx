@@ -150,6 +150,7 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
   const ripartizioneTipo = watch('ripartizione_tipo')
   const haFattura        = watch('ha_fattura_allegata')
   const datDocumento     = watch('data_documento')
+  const isCommissione    = watch('categoria') === 'Commissione agente/rete'
 
   const ivaComputed = ivaPersonalizzata
     ? parseFloat(watch('iva_importo')) || 0
@@ -182,8 +183,10 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
   }
 
   function submitHandler(values) {
-    // Validazione quote custom
-    if (values.ripartizione_tipo === 'custom') {
+    const isComm = values.categoria === 'Commissione agente/rete'
+
+    // Validazione quote custom (skip per commissioni — non distribuite)
+    if (!isComm && values.ripartizione_tipo === 'custom') {
       const sum = (values.quote_riccardo || 0) + (values.quote_mattia || 0) + (values.quote_sergio || 0)
       if (Math.abs(sum - values.importo) > 0.01) {
         setError('_quoteSum', {
@@ -220,13 +223,11 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
       escludi_da_residuo:   values.categoria === 'Commissione agente/rete',
     }
 
-    const quoteCustom = {
-      riccardo: values.quote_riccardo || 0,
-      mattia:   values.quote_mattia   || 0,
-      sergio:   values.quote_sergio   || 0,
-    }
+    const quoteCustom = isComm
+      ? { riccardo: 0, mattia: 0, sergio: 0 }
+      : { riccardo: values.quote_riccardo || 0, mattia: values.quote_mattia || 0, sergio: values.quote_sergio || 0 }
 
-    onSubmit({ spesa, ripartizione_tipo: values.ripartizione_tipo, quoteCustom })
+    onSubmit({ spesa, ripartizione_tipo: isComm ? 'custom' : values.ripartizione_tipo, quoteCustom })
   }
 
   return (
@@ -353,61 +354,65 @@ export default function SpeseForm({ editing, onSubmit, onCancel, loading }) {
       </div>
 
       {/* ── RIPARTIZIONE SOCI ── */}
-      <SectionTitle>Ripartizione soci</SectionTitle>
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <ToggleBtn active={ripartizioneTipo === 'uguale'} onClick={() => switchRipartizione('uguale')}>
-            ⅓ Uguale tra i soci
-          </ToggleBtn>
-          <ToggleBtn active={ripartizioneTipo === 'custom'} onClick={() => switchRipartizione('custom')}>
-            Personalizzata
-          </ToggleBtn>
-        </div>
-
-        {ripartizioneTipo === 'uguale' ? (
-          <div className="grid grid-cols-3 gap-3">
-            {SOCI.map(socio => (
-              <div key={socio} className="flex flex-col items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="w-2.5 h-2.5 rounded-full mb-1.5" style={{ backgroundColor: SOCIO_COLORS[socio] }} />
-                <div className="text-xs text-slate-500 mb-1">{SOCIO_LABELS[socio]}</div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {importo > 0 ? formatCurrency(quoteUguali[socio]) : '—'}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {SOCI.map(socio => (
-              <div key={socio} className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: SOCIO_COLORS[socio] }} />
-                <label className="w-20 text-sm font-medium text-slate-700">{SOCIO_LABELS[socio]}</label>
-                <AmountInput type="number" min="0" step="0.01" placeholder="0.00"
-                  {...register(`quote_${socio}`, { valueAsNumber: true })} />
-              </div>
-            ))}
-            <div className={`rounded-xl px-4 py-3 border text-sm flex items-center justify-between ${
-              customOk ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
-            }`}>
-              <span className="text-slate-600">Somma inserita</span>
-              <div className="flex items-center gap-3">
-                {!customOk && importo > 0 && (
-                  <span className="text-xs text-amber-600">
-                    {sommaCustom < importo
-                      ? `Mancano ${formatCurrency(Math.round((importo - sommaCustom) * 100) / 100)}`
-                      : `Eccedenza ${formatCurrency(Math.round((sommaCustom - importo) * 100) / 100)}`}
-                  </span>
-                )}
-                <span className={`font-bold ${customOk ? 'text-green-700' : 'text-amber-700'}`}>
-                  {formatCurrency(sommaCustom)}
-                </span>
-                {customOk && <span className="text-green-600">✓</span>}
-              </div>
+      {!isCommissione && (
+        <>
+          <SectionTitle>Ripartizione soci</SectionTitle>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <ToggleBtn active={ripartizioneTipo === 'uguale'} onClick={() => switchRipartizione('uguale')}>
+                ⅓ Uguale tra i soci
+              </ToggleBtn>
+              <ToggleBtn active={ripartizioneTipo === 'custom'} onClick={() => switchRipartizione('custom')}>
+                Personalizzata
+              </ToggleBtn>
             </div>
-            {errors._quoteSum && <p className="text-xs text-red-600">{errors._quoteSum.message}</p>}
+
+            {ripartizioneTipo === 'uguale' ? (
+              <div className="grid grid-cols-3 gap-3">
+                {SOCI.map(socio => (
+                  <div key={socio} className="flex flex-col items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="w-2.5 h-2.5 rounded-full mb-1.5" style={{ backgroundColor: SOCIO_COLORS[socio] }} />
+                    <div className="text-xs text-slate-500 mb-1">{SOCIO_LABELS[socio]}</div>
+                    <div className="text-sm font-semibold text-slate-800">
+                      {importo > 0 ? formatCurrency(quoteUguali[socio]) : '—'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {SOCI.map(socio => (
+                  <div key={socio} className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: SOCIO_COLORS[socio] }} />
+                    <label className="w-20 text-sm font-medium text-slate-700">{SOCIO_LABELS[socio]}</label>
+                    <AmountInput type="number" min="0" step="0.01" placeholder="0.00"
+                      {...register(`quote_${socio}`, { valueAsNumber: true })} />
+                  </div>
+                ))}
+                <div className={`rounded-xl px-4 py-3 border text-sm flex items-center justify-between ${
+                  customOk ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                }`}>
+                  <span className="text-slate-600">Somma inserita</span>
+                  <div className="flex items-center gap-3">
+                    {!customOk && importo > 0 && (
+                      <span className="text-xs text-amber-600">
+                        {sommaCustom < importo
+                          ? `Mancano ${formatCurrency(Math.round((importo - sommaCustom) * 100) / 100)}`
+                          : `Eccedenza ${formatCurrency(Math.round((sommaCustom - importo) * 100) / 100)}`}
+                      </span>
+                    )}
+                    <span className={`font-bold ${customOk ? 'text-green-700' : 'text-amber-700'}`}>
+                      {formatCurrency(sommaCustom)}
+                    </span>
+                    {customOk && <span className="text-green-600">✓</span>}
+                  </div>
+                </div>
+                {errors._quoteSum && <p className="text-xs text-red-600">{errors._quoteSum.message}</p>}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* ── FATTURA FORNITORE ── */}
       <SectionTitle>Fattura del fornitore</SectionTitle>
