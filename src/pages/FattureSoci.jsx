@@ -9,6 +9,11 @@ import { SOCI, SOCIO_LABELS, SOCIO_COLORS, formatCurrency, formatDate } from '..
 
 const SOCIO_BADGE_COLOR = { riccardo: 'blue', mattia: 'green', sergio: 'purple' }
 
+function getSocioLabel(f) {
+  if (f?.fatturato_da_sergio) return `${SOCIO_LABELS[f.socio]} (via Sergio)`
+  return SOCIO_LABELS[f?.socio] ?? ''
+}
+
 function EmptyState({ onNew }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -232,6 +237,9 @@ export default function FattureSoci() {
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SOCIO_COLORS[f.socio] }} />
                             <Badge color={SOCIO_BADGE_COLOR[f.socio]}>{SOCIO_LABELS[f.socio]}</Badge>
                           </div>
+                          {f.fatturato_da_sergio && (
+                            <div className="text-xs text-slate-400 mt-0.5 ml-3.5">via Sergio</div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs font-medium ${isOrdinario ? 'text-indigo-600' : 'text-green-600'}`}>
@@ -305,7 +313,7 @@ export default function FattureSoci() {
         open={modalOpen}
         onClose={closeModal}
         title={editing
-          ? `Modifica fattura — ${SOCIO_LABELS[editing.socio]} ${editing.numero_fattura ? `n. ${editing.numero_fattura}` : ''}`
+          ? `Modifica fattura — ${getSocioLabel(editing)} ${editing.numero_fattura ? `n. ${editing.numero_fattura}` : ''}`
           : 'Nuova fattura socio'}
         size="md"
       >
@@ -324,7 +332,7 @@ export default function FattureSoci() {
         onConfirm={handleDelete}
         loading={deleting}
         title="Elimina fattura socio"
-        message={`Sei sicuro di voler eliminare la fattura di ${SOCIO_LABELS[deleteTarget?.socio] ?? ''} da ${formatCurrency(deleteTarget?.imponibile)}? L'operazione non può essere annullata.`}
+        message={`Sei sicuro di voler eliminare la fattura di ${getSocioLabel(deleteTarget)} da ${formatCurrency(deleteTarget?.imponibile)}? L'operazione non può essere annullata.`}
       />
     </div>
   )

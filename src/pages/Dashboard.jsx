@@ -86,7 +86,8 @@ function computeIva(fattureEntrata, spese, fattureSoci, from, to) {
     credito += s.iva_importo ?? 0
   }
   for (const f of fattureSoci) {
-    if (f.socio !== 'sergio' || !inRange(f.data, from, to)) continue
+    const isOrdinario = f.socio === 'sergio' || f.fatturato_da_sergio
+    if (!isOrdinario || !inRange(f.data, from, to)) continue
     credito += f.iva_importo ?? 0
   }
 
@@ -189,7 +190,7 @@ function IvaCard({ iva }) {
           <span className="font-semibold tabular-nums">{formatCurrency(iva.debito)}</span>
         </div>
         <div className="flex justify-between">
-          <span>IVA a credito (spese + Sergio)</span>
+          <span>IVA a credito (spese + regime ordinario)</span>
           <span className="font-semibold tabular-nums">{formatCurrency(iva.credito)}</span>
         </div>
       </div>

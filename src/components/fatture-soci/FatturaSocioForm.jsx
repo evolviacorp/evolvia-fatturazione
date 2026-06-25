@@ -3,17 +3,40 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
-import { SOCIO_LABELS, formatCurrency } from '../../utils/format'
+import { formatCurrency } from '../../utils/format'
 
 // Riccardo & Mattia → forfettari (no IVA). Sergio → ordinario (IVA 22%).
+// _via_sergio: Mattia/Riccardo fatturati da Sergio → IVA 22%, ma scalano dal loro residuo.
 const REGIME = {
-  riccardo: 'forfettario',
-  mattia:   'forfettario',
-  sergio:   'ordinario',
+  riccardo:            'forfettario',
+  mattia:              'forfettario',
+  sergio:              'ordinario',
+  mattia_via_sergio:   'ordinario',
+  riccardo_via_sergio: 'ordinario',
+}
+
+const FORM_SOCIO_LABELS = {
+  riccardo:            'Riccardo',
+  mattia:              'Mattia',
+  sergio:              'Sergio',
+  mattia_via_sergio:   'Mattia (fatturato da Sergio)',
+  riccardo_via_sergio: 'Riccardo (fatturato da Sergio)',
+}
+
+// Socio reale che paga (per il messaggio "scala dal residuo di X")
+const RESIDUO_SOCIO_LABEL = {
+  riccardo:            'Riccardo',
+  mattia:              'Mattia',
+  sergio:              'Sergio',
+  mattia_via_sergio:   'Mattia',
+  riccardo_via_sergio: 'Riccardo',
 }
 
 const schema = z.object({
-  socio:          z.enum(['riccardo', 'mattia', 'sergio'], { required_error: 'Seleziona un socio' }),
+  socio: z.enum(
+    ['riccardo', 'mattia', 'sergio', 'mattia_via_sergio', 'riccardo_via_sergio'],
+    { required_error: 'Seleziona un socio' }
+  ),
   data:           z.string().min(1, 'Data obbligatoria'),
   numero_fattura: z.string().optional().or(z.literal('')),
   imponibile:     z.number({ invalid_type_error: 'Imponibile obbligatorio' }).positive('Importo deve essere > 0'),
@@ -43,8 +66,11 @@ function Input({ hasError, className = '', ...props }) {
 }
 
 function buildDefaults(editing) {
+  let socioValue = editing?.socio ?? ''
+  if (editing?.fatturato_da_sergio && socioValue === 'mattia')   socioValue = 'mattia_via_sergio'
+  if (editing?.fatturato_da_sergio && socioValue === 'riccardo') socioValue = 'riccardo_via_sergio'
   return {
-    socio:          editing?.socio          ?? '',
+    socio:          socioValue,
     data:           editing?.data           ?? format(new Date(), 'yyyy-MM-dd'),
     numero_fattura: editing?.numero_fattura ?? '',
     imponibile:     editing?.imponibile     ?? undefined,
@@ -72,14 +98,19 @@ export default function FatturaSocioForm({ editing, onSubmit, onCancel, loading 
   const totaleFattura = imponibile + ivaImporto
 
   function submitHandler(values) {
+    const viaSergio = values.socio === 'mattia_via_sergio' || values.socio === 'riccardo_via_sergio'
+    const socioDb   = viaSergio
+      ? (values.socio === 'mattia_via_sergio' ? 'mattia' : 'riccardo')
+      : values.socio
     onSubmit({
-      socio:          values.socio,
-      data:           values.data,
-      numero_fattura: values.numero_fattura || null,
-      imponibile:     values.imponibile,
-      iva_pct:        REGIME[values.socio] === 'ordinario' ? 22 : 0,
-      descrizione:    values.descrizione || null,
-      note:           values.note || null,
+      socio:              socioDb,
+      fatturato_da_sergio: viaSergio,
+      data:               values.data,
+      numero_fattura:     values.numero_fattura || null,
+      imponibile:         values.imponibile,
+      iva_pct:            REGIME[values.socio] === 'ordinario' ? 22 : 0,
+      descrizione:        values.descrizione || null,
+      note:               values.note || null,
     })
   }
 
@@ -98,6 +129,9 @@ export default function FatturaSocioForm({ editing, onSubmit, onCancel, loading 
           <option value="riccardo">Riccardo — forfettario</option>
           <option value="mattia">Mattia — forfettario</option>
           <option value="sergio">Sergio — regime ordinario (IVA 22%)</option>
+          <option disabled>──────────────────</option>
+          <option value="mattia_via_sergio">Mattia (fatturato da Sergio) — IVA 22%</option>
+          <option value="riccardo_via_sergio">Riccardo (fatturato da Sergio) — IVA 22%</option>
         </select>
       </Field>
 
@@ -148,14 +182,14 @@ export default function FatturaSocioForm({ editing, onSubmit, onCancel, loading 
             ? 'bg-indigo-50 border-indigo-100 text-indigo-700'
             : 'bg-green-50 border-green-100 text-green-700'
         }`}>
-          <span className="font-medium">{SOCIO_LABELS[socio]}</span>
+          <span className="font-medium">{FORM_SOCIO_LABELS[socio]}</span>
           {' '}—{' '}
           {isOrdinario
             ? 'Regime ordinario: IVA 22% applicata. Il totale da pagare è imponibile + IVA.'
             : 'Regime forfettario: nessuna IVA, nessuna ritenuta. Il totale corrisponde all\'imponibile.'}
           {imponibile > 0 && (
             <span className="block mt-1 font-semibold">
-              Scala dal residuo di {SOCIO_LABELS[socio]}: −{formatCurrency(imponibile)}
+              Scala dal residuo di {RESIDUO_SOCIO_LABEL[socio]}: −{formatCurrency(imponibile)}
             </span>
           )}
         </div>

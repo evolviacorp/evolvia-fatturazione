@@ -16,7 +16,7 @@ export function useFiscale() {
     const [r1, r2, r3, r4, r5] = await Promise.all([
       supabase.from('fatture_entrata').select('id, data, imponibile, iva_pct'),
       supabase.from('spese').select('id, data_documento, iva_importo, ritenuta_acconto'),
-      supabase.from('fatture_soci').select('id, data, socio, iva_importo'),
+      supabase.from('fatture_soci').select('id, data, socio, iva_importo, fatturato_da_sergio'),
       supabase.from('versamenti_iva').select('*').order('data_versamento', { ascending: false }),
       supabase.from('versamenti_ritenute').select('*').order('data_versamento', { ascending: false }),
     ])

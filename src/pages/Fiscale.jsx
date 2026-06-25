@@ -204,17 +204,18 @@ function IvaSection({ fattureEntrata, spese, fattureSoci, versamentiIva, anno, c
       debito += (f.imponibile ?? 0) * (f.iva_pct ?? 0) / 100
     }
 
-    let creditoSpese = 0, creditoSergio = 0
+    let creditoSpese = 0, creditoOrdinario = 0
     for (const s of spese) {
       if (!inRange(s.data_documento, from, to)) continue
       creditoSpese += s.iva_importo ?? 0
     }
     for (const fs of fattureSoci) {
-      if (fs.socio !== 'sergio' || !inRange(fs.data, from, to)) continue
-      creditoSergio += fs.iva_importo ?? 0
+      const isOrdinario = fs.socio === 'sergio' || fs.fatturato_da_sergio
+      if (!isOrdinario || !inRange(fs.data, from, to)) continue
+      creditoOrdinario += fs.iva_importo ?? 0
     }
 
-    const credito   = r2(creditoSpese + creditoSergio)
+    const credito   = r2(creditoSpese + creditoOrdinario)
     const debR      = r2(debito)
     const netta     = r2(debR - credito)
     const versato   = r2(versamentiIva
@@ -226,7 +227,7 @@ function IvaSection({ fattureEntrata, spese, fattureSoci, versamentiIva, anno, c
     const scadAnno = q === 4 ? anno + 1 : anno
     const scadenza = new Date(scadAnno, info.scadMese, 16)
 
-    return { q, from, to, debito: debR, creditoSpese: r2(creditoSpese), creditoSergio: r2(creditoSergio), credito, netta, versato, daVersare, scadenza }
+    return { q, from, to, debito: debR, creditoSpese: r2(creditoSpese), creditoOrdinario: r2(creditoOrdinario), credito, netta, versato, daVersare, scadenza }
   }), [fattureEntrata, spese, fattureSoci, versamentiIva, anno])
 
   const totals = useMemo(() => ivaData.reduce(
@@ -355,7 +356,7 @@ function IvaSection({ fattureEntrata, spese, fattureSoci, versamentiIva, anno, c
       </div>
 
       <p className="text-xs text-slate-400 -mt-2">
-        Scadenze per regime trimestrale. IVA credito = spese con IVA + fatture Sergio (regime ordinario).
+        Scadenze per regime trimestrale. IVA credito = spese con IVA + fatture in regime ordinario (Sergio + fatturate da Sergio per altri soci).
         Per il regime trimestrale aggiungere lo 0,33% di interessi sull'IVA netta di ciascun trimestre.
       </p>
 
