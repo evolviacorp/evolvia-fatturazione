@@ -24,9 +24,9 @@ const schema = z.object({
   iva_pct:           z.number().min(0).max(100),
   iva_importo:       z.number().min(0),
   ripartizione_tipo: z.enum(['uguale', 'custom']),
-  quote_riccardo:    z.number().min(0).optional(),
-  quote_mattia:      z.number().min(0).optional(),
-  quote_sergio:      z.number().min(0).optional(),
+  quote_riccardo:    z.number().min(0).optional().or(z.nan()),
+  quote_mattia:      z.number().min(0).optional().or(z.nan()),
+  quote_sergio:      z.number().min(0).optional().or(z.nan()),
   // Fattura allegata
   ha_fattura_allegata:  z.boolean(),
   ritenuta_acconto:     z.number().min(0).optional().or(z.nan()),
