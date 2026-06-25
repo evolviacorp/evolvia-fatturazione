@@ -171,9 +171,10 @@ export default function Spese() {
     return spesa.spese_quote_soci?.find(q => q.socio === socio)?.importo ?? 0
   }
 
-  const totRiccardo = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'riccardo'), 0)
-  const totMattia   = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'mattia'), 0)
-  const totSergio   = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'sergio'), 0)
+  const totRiccardo   = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'riccardo'), 0)
+  const totMattia     = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'mattia'), 0)
+  const totSergio     = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'sergio'), 0)
+  const totTotaleDoc  = speseFiltrate.reduce((s, x) => s + (x.importo ?? 0) + (x.iva_importo ?? 0), 0)
 
   return (
     <div className="p-6">
@@ -249,11 +250,11 @@ export default function Spese() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    {['Data doc.', 'N. Doc', 'Fornitore', 'Categoria', 'Importo', 'IVA', 'Ripartiz.', 'Riccardo', 'Mattia', 'Sergio', 'Fattura', 'Stato', ''].map(h => (
+                    {['Data doc.', 'N. Doc', 'Fornitore', 'Categoria', 'Importo', 'IVA', 'Totale doc.', 'Ripartiz.', 'Riccardo', 'Mattia', 'Sergio', 'Fattura', 'Stato', ''].map(h => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide ${
-                          h === 'Importo' || h === 'IVA' || h === 'Riccardo' || h === 'Mattia' || h === 'Sergio' ? 'text-right' : h === '' || h === 'Fattura' ? 'text-center' : 'text-left'
+                          h === 'Importo' || h === 'IVA' || h === 'Totale doc.' || h === 'Riccardo' || h === 'Mattia' || h === 'Sergio' ? 'text-right' : h === '' || h === 'Fattura' ? 'text-center' : 'text-left'
                         }`}
                       >
                         {h}
@@ -263,9 +264,8 @@ export default function Spese() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {speseFiltrate.map(spesa => {
-                    const ivaDisplay = spesa.iva_personalizzata
-                      ? formatCurrency(spesa.iva_importo)
-                      : `${spesa.iva_pct}%`
+                    const ivaDisplay = formatCurrency(spesa.iva_importo ?? 0)
+                    const totaleDoc  = (spesa.importo ?? 0) + (spesa.iva_importo ?? 0)
                     const haFattura = (spesa.ritenuta_acconto > 0 || spesa.contributo_albo > 0 || !!spesa.contributo_albo_nome)
 
                     return (
@@ -293,6 +293,9 @@ export default function Spese() {
                         </td>
                         <td className="px-4 py-3 text-right text-slate-500 text-xs whitespace-nowrap">
                           {ivaDisplay}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">
+                          {formatCurrency(totaleDoc)}
                         </td>
                         <td className="px-4 py-3">
                           <Badge color={spesa.ripartizione_tipo === 'uguale' ? 'slate' : 'blue'}>
@@ -381,7 +384,10 @@ export default function Spese() {
               </span>
               <div className="flex items-center gap-5 flex-wrap">
                 <span className="text-slate-600">
-                  Totale: <span className="font-bold text-slate-900">{formatCurrency(totImporto)}</span>
+                  Imponibile: <span className="font-bold text-slate-900">{formatCurrency(totImporto)}</span>
+                </span>
+                <span className="text-slate-600">
+                  Tot. documenti: <span className="font-bold text-slate-900">{formatCurrency(totTotaleDoc)}</span>
                 </span>
                 <span className="text-green-700">
                   Pagate: <span className="font-bold">{formatCurrency(totPagato)}</span>
