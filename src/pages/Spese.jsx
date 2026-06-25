@@ -167,6 +167,14 @@ export default function Spese() {
   const totPagato  = speseFiltrate.filter(x => x.pagata).reduce((s, x) => s + (x.importo ?? 0), 0)
   const totDaPagare = totImporto - totPagato
 
+  function quotaSocio(spesa, socio) {
+    return spesa.spese_quote_soci?.find(q => q.socio === socio)?.importo ?? 0
+  }
+
+  const totRiccardo = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'riccardo'), 0)
+  const totMattia   = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'mattia'), 0)
+  const totSergio   = speseFiltrate.reduce((s, x) => s + quotaSocio(x, 'sergio'), 0)
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -241,11 +249,11 @@ export default function Spese() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    {['Data doc.', 'N. Doc', 'Fornitore', 'Categoria', 'Importo', 'IVA', 'Ripartiz.', 'Fattura', 'Stato', ''].map(h => (
+                    {['Data doc.', 'N. Doc', 'Fornitore', 'Categoria', 'Importo', 'IVA', 'Ripartiz.', 'Riccardo', 'Mattia', 'Sergio', 'Fattura', 'Stato', ''].map(h => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide ${
-                          h === 'Importo' || h === 'IVA' ? 'text-right' : h === '' || h === 'Fattura' ? 'text-center' : 'text-left'
+                          h === 'Importo' || h === 'IVA' || h === 'Riccardo' || h === 'Mattia' || h === 'Sergio' ? 'text-right' : h === '' || h === 'Fattura' ? 'text-center' : 'text-left'
                         }`}
                       >
                         {h}
@@ -291,6 +299,17 @@ export default function Spese() {
                             {spesa.ripartizione_tipo === 'uguale' ? '⅓ Uguale' : 'Custom'}
                           </Badge>
                         </td>
+                        {['riccardo', 'mattia', 'sergio'].map(socio => {
+                          const q = quotaSocio(spesa, socio)
+                          return (
+                            <td key={socio} className="px-4 py-3 text-right text-sm whitespace-nowrap">
+                              {q > 0
+                                ? <span className="text-slate-700 font-medium">{formatCurrency(q)}</span>
+                                : <span className="text-slate-300">—</span>
+                              }
+                            </td>
+                          )
+                        })}
                         <td className="px-4 py-3 text-center">
                           {haFattura ? (
                             <div title={[
@@ -360,7 +379,7 @@ export default function Spese() {
                 {speseFiltrate.length} {speseFiltrate.length !== spese.length ? `di ${spese.length} ` : ''}
                 {speseFiltrate.length === 1 ? 'spesa' : 'spese'}
               </span>
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-5 flex-wrap">
                 <span className="text-slate-600">
                   Totale: <span className="font-bold text-slate-900">{formatCurrency(totImporto)}</span>
                 </span>
@@ -369,6 +388,15 @@ export default function Spese() {
                 </span>
                 <span className="text-amber-700">
                   Da pagare: <span className="font-bold">{formatCurrency(totDaPagare)}</span>
+                </span>
+                <span className="border-l border-slate-200 pl-5 text-slate-500">
+                  Riccardo: <span className="font-bold text-slate-700">{formatCurrency(totRiccardo)}</span>
+                </span>
+                <span className="text-slate-500">
+                  Mattia: <span className="font-bold text-slate-700">{formatCurrency(totMattia)}</span>
+                </span>
+                <span className="text-slate-500">
+                  Sergio: <span className="font-bold text-slate-700">{formatCurrency(totSergio)}</span>
                 </span>
               </div>
             </div>
