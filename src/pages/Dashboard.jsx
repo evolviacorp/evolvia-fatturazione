@@ -77,7 +77,7 @@ function computeIva(fattureEntrata, spese, fattureSoci, from, to) {
   let debito = 0
   for (const f of fattureEntrata) {
     if (!inRange(f.data, from, to)) continue
-    debito += f.iva_importo ?? 0
+    debito += (f.imponibile ?? 0) * (f.iva_pct ?? 0) / 100
   }
 
   let credito = 0
