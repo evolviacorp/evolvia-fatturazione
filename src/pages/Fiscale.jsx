@@ -23,7 +23,7 @@ const QUARTER_INFO = {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function fmtD(date) { return date.toISOString().slice(0, 10) }
+function fmtD(date) { return format(date, 'yyyy-MM-dd') }
 
 function inRange(dateStr, from, to) {
   if (!dateStr) return false
