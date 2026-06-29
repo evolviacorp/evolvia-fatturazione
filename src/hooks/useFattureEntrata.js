@@ -75,5 +75,14 @@ export function useFattureEntrata() {
     setFatture(prev => prev.filter(f => f.id !== id))
   }
 
-  return { fatture, loading, error, refresh: fetchFatture, createFattura, updateFattura, deleteFattura }
+  async function togglePagata(id, current) {
+    const { error } = await supabase
+      .from('fatture_entrata')
+      .update({ pagata: !current })
+      .eq('id', id)
+    if (error) throw new Error(error.message)
+    setFatture(prev => prev.map(f => f.id === id ? { ...f, pagata: !current } : f))
+  }
+
+  return { fatture, loading, error, refresh: fetchFatture, createFattura, updateFattura, deleteFattura, togglePagata }
 }

@@ -49,10 +49,14 @@ function getPeriodRange(periodo, customFrom, customTo) {
 
 function computeResiduoSocio(socio, fattureEntrata, spese, fattureSoci, from, to) {
   let entrata = 0
+  let creditiDaIncassare = 0
   for (const f of fattureEntrata) {
     if (!inRange(f.data, from, to)) continue
     const q = (f.fatture_entrata_quote_soci ?? []).find(x => x.socio === socio)
-    if (q) entrata += q.importo ?? 0
+    if (q) {
+      entrata += q.importo ?? 0
+      if (!f.pagata) creditiDaIncassare += q.importo ?? 0
+    }
   }
 
   let speseQuota = 0
@@ -69,8 +73,10 @@ function computeResiduoSocio(socio, fattureEntrata, spese, fattureSoci, from, to
     fattureEmesse += f.imponibile ?? 0
   }
 
-  return { entrata, speseQuota, fattureEmesse,
-    totale: Math.round((entrata - speseQuota - fattureEmesse) * 100) / 100 }
+  const totale = Math.round((entrata - speseQuota - fattureEmesse) * 100) / 100
+  creditiDaIncassare = Math.round(creditiDaIncassare * 100) / 100
+  return { entrata, speseQuota, fattureEmesse, totale, creditiDaIncassare,
+    residuoNetto: Math.round((totale - creditiDaIncassare) * 100) / 100 }
 }
 
 function computeIva(fattureEntrata, spese, fattureSoci, from, to) {
@@ -169,29 +175,43 @@ function ResidualCard({ socio, data }) {
           {formatCurrency(data.totale)}
         </span>
       </div>
+      <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+        <DetailRow label="Crediti da incassare" value={data.creditiDaIncassare} sign="−" />
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-600">Residuo netto disponibile</span>
+          <span className={`text-lg font-bold tabular-nums ${data.residuoNetto >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+            {formatCurrency(data.residuoNetto)}
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
 
-function IvaCard({ iva }) {
-  const daVersare = iva.netta >= 0
+function IvaCard({ iva, versata, year }) {
+  const daVersare = Math.round((iva.netta - versata) * 100) / 100
+  const positivo = daVersare >= 0
   return (
-    <div className={`rounded-xl border p-5 ${daVersare ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
-      <div className={`text-sm font-semibold mb-1 flex items-center gap-1.5 ${daVersare ? 'text-amber-700' : 'text-emerald-700'}`}>
-        <span>⚖️</span> IVA netta del periodo
+    <div className={`rounded-xl border p-5 ${positivo ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
+      <div className={`text-sm font-semibold mb-1 flex items-center gap-1.5 ${positivo ? 'text-amber-700' : 'text-emerald-700'}`}>
+        <span>⚖️</span> IVA — anno {year}
       </div>
-      <div className={`text-2xl font-bold mt-2 tabular-nums ${daVersare ? 'text-amber-900' : 'text-emerald-800'}`}>
-        {formatCurrency(Math.abs(iva.netta))}
-        <span className="text-sm font-medium ml-2">{daVersare ? 'da versare' : 'a credito'}</span>
+      <div className={`text-2xl font-bold mt-2 tabular-nums ${positivo ? 'text-amber-900' : 'text-emerald-800'}`}>
+        {formatCurrency(Math.abs(daVersare))}
+        <span className="text-sm font-medium ml-2">{positivo ? 'ancora da versare' : 'a credito'}</span>
       </div>
-      <div className={`mt-3 pt-3 border-t space-y-1.5 text-xs ${daVersare ? 'border-amber-200 text-amber-700' : 'border-emerald-200 text-emerald-700'}`}>
+      <div className={`mt-3 pt-3 border-t space-y-1.5 text-xs ${positivo ? 'border-amber-200 text-amber-700' : 'border-emerald-200 text-emerald-700'}`}>
         <div className="flex justify-between">
-          <span>IVA a debito (fatture attive)</span>
-          <span className="font-semibold tabular-nums">{formatCurrency(iva.debito)}</span>
+          <span>IVA netta totale anno</span>
+          <span className="font-semibold tabular-nums">{formatCurrency(iva.netta)}</span>
         </div>
         <div className="flex justify-between">
-          <span>IVA a credito (spese + regime ordinario)</span>
-          <span className="font-semibold tabular-nums">{formatCurrency(iva.credito)}</span>
+          <span>Già versata</span>
+          <span className="font-semibold tabular-nums">{formatCurrency(versata)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Da versare ancora</span>
+          <span className="font-semibold tabular-nums">{formatCurrency(daVersare)}</span>
         </div>
       </div>
     </div>
@@ -251,7 +271,7 @@ const PERIODI = [
 // ── Dashboard ─────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { fattureEntrata, spese, fattureSoci, loading, error, refresh } = useDashboard()
+  const { fattureEntrata, spese, fattureSoci, versamentiIva, loading, error, refresh } = useDashboard()
   const [periodo,    setPeriodo]    = useState('anno')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo,   setCustomTo]   = useState('')
@@ -268,9 +288,21 @@ export default function Dashboard() {
     return r
   }, [fattureEntrata, spese, fattureSoci, from, to])
 
+  // IVA: sempre calcolata sull'intero anno fiscale (coerente con i versamenti trimestrali)
+  const ivaYear = useMemo(() => to.getFullYear(), [to])
+
   const iva = useMemo(
-    () => computeIva(fattureEntrata, spese, fattureSoci, from, to),
-    [fattureEntrata, spese, fattureSoci, from, to]
+    () => computeIva(fattureEntrata, spese, fattureSoci, startOfYear(to), endOfYear(to)),
+    [fattureEntrata, spese, fattureSoci, to]
+  )
+
+  const ivaVersata = useMemo(
+    () => Math.round(
+      versamentiIva
+        .filter(v => v.anno === ivaYear)
+        .reduce((s, v) => s + (Number(v.importo) || 0), 0) * 100
+    ) / 100,
+    [versamentiIva, ivaYear]
   )
 
   const ritenute = useMemo(
@@ -283,7 +315,7 @@ export default function Dashboard() {
     [fattureEntrata, spese, fattureSoci]
   )
 
-  const ZERO = { entrata: 0, speseQuota: 0, fattureEmesse: 0, totale: 0 }
+  const ZERO = { entrata: 0, speseQuota: 0, fattureEmesse: 0, totale: 0, creditiDaIncassare: 0, residuoNetto: 0 }
 
   return (
     <div className="p-6 space-y-7 max-w-screen-xl">
@@ -375,7 +407,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            <IvaCard iva={iva} />
+            <IvaCard iva={iva} versata={ivaVersata} year={ivaYear} />
             <RitenuteCard ritenute={ritenute} />
           </div>
         )}

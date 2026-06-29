@@ -39,7 +39,7 @@ function EmptyState({ onNew }) {
 }
 
 export default function FattureEntrata() {
-  const { fatture, loading, error, createFattura, updateFattura, deleteFattura } = useFattureEntrata()
+  const { fatture, loading, error, createFattura, updateFattura, deleteFattura, togglePagata } = useFattureEntrata()
   const { agenti } = useAgenti()
   const toast = useToast()
 
@@ -75,6 +75,15 @@ export default function FattureEntrata() {
     } catch (err) {
       toast(err.message, 'error')
       throw err
+    }
+  }
+
+  async function handleTogglePagata(fattura) {
+    try {
+      await togglePagata(fattura.id, fattura.pagata)
+      toast(fattura.pagata ? 'Fattura segnata come da incassare' : 'Fattura segnata come pagata')
+    } catch (err) {
+      toast(err.message, 'error')
     }
   }
 
@@ -142,11 +151,11 @@ export default function FattureEntrata() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    {['Data', 'N. Fattura', 'Cliente', 'Imponibile', 'IVA', 'Totale lordo', 'Quote soci', 'Agenti', ''].map(h => (
+                    {['Data', 'N. Fattura', 'Cliente', 'Imponibile', 'IVA', 'Totale lordo', 'Quote soci', 'Agenti', 'Stato', ''].map(h => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide ${
-                          h === 'Imponibile' || h === 'Totale lordo' ? 'text-right' : h === '' ? '' : 'text-left'
+                          h === 'Imponibile' || h === 'Totale lordo' ? 'text-right' : h === '' ? '' : h === 'Stato' ? 'text-center' : 'text-left'
                         }`}
                       >
                         {h}
@@ -195,6 +204,22 @@ export default function FattureEntrata() {
                           ) : (
                             <span className="text-slate-300 text-xs">—</span>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <label
+                            className="inline-flex items-center gap-1.5 cursor-pointer select-none"
+                            title={fattura.pagata ? 'Pagata — clicca per segnare come da incassare' : 'Da incassare — clicca per segnare come pagata'}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!fattura.pagata}
+                              onChange={() => handleTogglePagata(fattura)}
+                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                            <span className={`text-xs font-medium ${fattura.pagata ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {fattura.pagata ? 'Pagata' : 'Da incassare'}
+                            </span>
+                          </label>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
