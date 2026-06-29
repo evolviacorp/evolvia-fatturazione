@@ -218,6 +218,40 @@ function IvaCard({ iva, versata, year }) {
   )
 }
 
+function LiquiditaAttesaCard({ residuiTotali, ivaDaVersare, ritenuteDaVersare }) {
+  const totale = Math.round((residuiTotali + ivaDaVersare + ritenuteDaVersare) * 100) / 100
+  const pos = totale >= 0
+  const rows = [
+    { label: 'Residui soci (periodo)',       value: residuiTotali,      color: 'text-slate-700' },
+    { label: 'IVA ancora da versare (anno)', value: ivaDaVersare,       color: ivaDaVersare >= 0      ? 'text-amber-700'  : 'text-emerald-700' },
+    { label: 'Ritenute da versare (anno)',   value: ritenuteDaVersare,  color: ritenuteDaVersare >= 0 ? 'text-rose-700'   : 'text-emerald-700' },
+  ]
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-1.5">
+        <span>🏦</span> Liquidità attesa sui conti
+      </div>
+      <div className="space-y-2.5">
+        {rows.map((r, i) => (
+          <div key={i} className="flex justify-between items-baseline text-sm">
+            <span className="text-slate-500 flex items-center gap-1.5">
+              <span className="text-xs font-bold text-emerald-500">+</span>
+              {r.label}
+            </span>
+            <span className={`font-semibold tabular-nums ${r.color}`}>{formatCurrency(r.value)}</span>
+          </div>
+        ))}
+      </div>
+      <div className={`mt-4 pt-3 border-t border-slate-100 flex items-center justify-between`}>
+        <span className="text-sm font-bold text-slate-700">Totale liquidità attesa</span>
+        <span className={`text-2xl font-bold tabular-nums ${pos ? 'text-blue-700' : 'text-rose-600'}`}>
+          {formatCurrency(totale)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function RitenuteCard({ ritenute }) {
   const hasRit = ritenute > 0
   return (
@@ -271,7 +305,7 @@ const PERIODI = [
 // ── Dashboard ─────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { fattureEntrata, spese, fattureSoci, versamentiIva, loading, error, refresh } = useDashboard()
+  const { fattureEntrata, spese, fattureSoci, versamentiIva, versamentiRitenute, loading, error, refresh } = useDashboard()
   const [periodo,    setPeriodo]    = useState('anno')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo,   setCustomTo]   = useState('')
@@ -309,6 +343,27 @@ export default function Dashboard() {
     () => computeRitenute(spese, from, to),
     [spese, from, to]
   )
+
+  const ritenuteAnno = useMemo(
+    () => computeRitenute(spese, startOfYear(to), endOfYear(to)),
+    [spese, to]
+  )
+
+  const ritenuteVersate = useMemo(
+    () => Math.round(
+      versamentiRitenute
+        .filter(v => v.anno === ivaYear)
+        .reduce((s, v) => s + (Number(v.importo) || 0), 0) * 100
+    ) / 100,
+    [versamentiRitenute, ivaYear]
+  )
+
+  const liquidita = useMemo(() => {
+    const residuiTotali   = Math.round(SOCI.reduce((s, socio) => s + (residui[socio]?.totale ?? 0), 0) * 100) / 100
+    const ivaDaVersare    = Math.round((iva.netta - ivaVersata) * 100) / 100
+    const ritenuteDaVersare = Math.round((ritenuteAnno - ritenuteVersate) * 100) / 100
+    return { residuiTotali, ivaDaVersare, ritenuteDaVersare }
+  }, [residui, iva.netta, ivaVersata, ritenuteAnno, ritenuteVersate])
 
   const chartData = useMemo(
     () => buildChartData(fattureEntrata, spese, fattureSoci),
@@ -392,6 +447,22 @@ export default function Dashboard() {
               <ResidualCard key={socio} socio={socio} data={residui[socio] ?? ZERO} />
             ))}
           </div>
+        )}
+      </section>
+
+      {/* Liquidità attesa */}
+      <section>
+        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+          Liquidità attesa sui conti
+        </h2>
+        {loading ? (
+          <SkeletonCard rows={4} />
+        ) : (
+          <LiquiditaAttesaCard
+            residuiTotali={liquidita.residuiTotali}
+            ivaDaVersare={liquidita.ivaDaVersare}
+            ritenuteDaVersare={liquidita.ritenuteDaVersare}
+          />
         )}
       </section>
 
