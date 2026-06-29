@@ -222,7 +222,7 @@ function LiquiditaAttesaCard({ residuiTotali, ivaDaVersare, ritenuteDaVersare })
   const totale = Math.round((residuiTotali + ivaDaVersare + ritenuteDaVersare) * 100) / 100
   const pos = totale >= 0
   const rows = [
-    { label: 'Residui soci (periodo)',       value: residuiTotali,      color: 'text-slate-700' },
+    { label: 'Residui netti soci (periodo)',  value: residuiTotali,      color: 'text-slate-700' },
     { label: 'IVA ancora da versare (anno)', value: ivaDaVersare,       color: ivaDaVersare >= 0      ? 'text-amber-700'  : 'text-emerald-700' },
     { label: 'Ritenute da versare (anno)',   value: ritenuteDaVersare,  color: ritenuteDaVersare >= 0 ? 'text-rose-700'   : 'text-emerald-700' },
   ]
@@ -359,7 +359,7 @@ export default function Dashboard() {
   )
 
   const liquidita = useMemo(() => {
-    const residuiTotali   = Math.round(SOCI.reduce((s, socio) => s + (residui[socio]?.totale ?? 0), 0) * 100) / 100
+    const residuiTotali   = Math.round(SOCI.reduce((s, socio) => s + (residui[socio]?.residuoNetto ?? 0), 0) * 100) / 100
     const ivaDaVersare    = Math.round((iva.netta - ivaVersata) * 100) / 100
     const ritenuteDaVersare = Math.round((ritenuteAnno - ritenuteVersate) * 100) / 100
     return { residuiTotali, ivaDaVersare, ritenuteDaVersare }
